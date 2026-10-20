@@ -1,0 +1,110 @@
+
+- PBKDF2-HMAC-SHA256; sól, liczba iteracji, długość klucza.
+- Kodowanie UTF-8; bajty i zapis szesnastkowy.
+- Entropia Shannona dla rozkładu bajtów.
+- Przestrzeń kluczy i przeszukiwanie kandydatów.
+
+
+AES (advanced encryption standard) 
+- szyfr symetryczny (ten sam klucz do szyfrowania i odwrotnie).
+- Przetwarza dane blokami o stałej wielkości 16 bajtów
+mogą być różne dł. klucza, klucz musi być tajny:
+Klucz AES-128	128 bitów = 16 bajtów
+Klucz AES-192	192 bity = 24 bajty
+Klucz AES-256	256 bitów = 32 bajty
+
+
+Tryby
+1. ECB (electronic codebook)
+- każdy blok szyfrowany niezależnie, tym samym kluczem
+Plus: łatwa implementacje
+Minusy: dwa identyczne bloki wejściowe dają identyczne bloki wyjściowe przy tym samym kluczu = widoczne powtarzające się wzorce, psuje poufność
+
+2. CBC (cipher block chaining)
+- Przed zaszyfrowaniem każdego bloku wykonuje się operację XOR z poprzednim szyfrogramem.
+- pierwszy blok ma xor z IV (Initialization Vector)
+
+CBC lepiej ukrywa powtarzające się wzorce, bo identyczne bloki tekstu jawnego nie muszą dawać identycznych bloków szyfrogramu.
+
+- IV ma 16 bajtów, czyli tyle, ile wynosi rozmiar bloku AES.
+- Powinien być losowy i niepowtarzalny w odpowiednich warunkach użycia; w CBC szczególnie istotna jest nieprzewidywalność IV.
+- Nie musi być tajny, można przechowywać go obok szyfrogramu.
+- Do odszyfrowania trzeba użyć dokładnie tego samego IV.
+
+
+
+PKCS#7 - dodaje dopełnienie (padding) do tekstu jawnego, ponieważ AES potrzebuje równych bloków 16 bajtów
+Zasady:
+- Jeśli brakuje 4 bajtów do pełnego bloku, dodaje 04 04 04 04. (taka wartość w hexadecimal ile dopełnionych bajtów)
+- Jeśli brakuje 1 bajtu, dodajemy 01.
+- Jeśli dane już mają długość będącą wielokrotnością 16 bajtów, dodajemy cały blok 16 bajtów o wartości 10 w zapisie szesnastkowym, czyli 16 bajtów 0x10. Dzięki temu można jednoznacznie odróżnić rzeczywiste dane od dopełnienia podczas odszyfrowywania.
+
+
+
+AES potrzebuje stałej długości klucza, więc hasła ludzkie są przekształcane w klucz
+PBKDF2 wykorzystuje hasło, sól, określoną liczbę iteracji oraz funkcję pseudolosową, np. HMAC-SHA256, aby wyprowadzić klucz o wymaganej długości.
+
+Hasło + losowa sól  ->  PBKDF2-HMAC-SHA256 (Wiele iteracji obliczeń)  ->  Klucz o wybranej długości dla AES-xxx
+
+- sól nie musi być tajna;
+- powinna być losowa i odpowiednio długa - typowym wyborem jest 16 bajtów;
+- powinna być zapisana razem z zaszyfrowanymi danymi, aby można było ponownie wyprowadzić ten sam klucz;
+- sprawia, że takie samo hasło z różnymi solami daje różne klucze.
+
+Większa liczba iteracji zwiększa koszt wyprowadzania klucza, więc utrudnia masowe testowanie odgadniętych haseł. Ale nie można przesadzać bo kosztuje czas
+
+text = "tekst"
+data = text.encode("utf-8") -> b"tekst"  (typ bytes)
+data = text.decode("utf-8") -> "tekst" 
+
+.encode("utf-8") przekształca tekst na bajty.
+.decode("utf-8") odwrotnie, o ile bajty reprezentują poprawny tekst w tym kodowaniu.
+
+
+W UTF-8 różne znaki mogą zajmować różną liczbę bajtów.
+Zapis szesnastkowy przedstawia każdy bajt za pomocą dwóch cyfr szesnastkowych, np: 01, 4C, 0A
+data = b"ABC"  print(data.hex())
+
+
+Entropia Shannona dla rozkłądu bajtów - równomierność rozkładu bajtów (im większa wartość tym lepiej, równomierniej)
+- bajty mają wartości 0-255
+Wzór na entropię Shannona: entropia = - suma(od i do n) P * log2( P ) ,
+gdzie n = liczba możliwych symboli, P = prawdopodobieństwo danego symbolu dziesiętnie np 0.5
+(jest ładny w isodzie)
+- jeśli wszystkie wartości występują równomiernie to upraszcza się do log2(256) = 8 bitów na bajt
+
+Liczenie jej w pythonie:
+from collections import Counter
+from math import log2
+
+def shannon_entropy(data):
+    if len(data) == 0:
+        return 0.0
+
+    counts = Counter(data)
+    total = len(data)
+
+    entropy = 0.0
+    for count in counts.values():
+        p = count / total
+        entropy -= p * log2(p)
+
+    return entropy
+
+data = open("demo24.bmp", "rb").read()
+print(shannon_entropy(data))
+
+
+Przestrzeń kluczy to zbiór wszystkich kluczy, które mogą być użyte przez dany algorytm.
+Dla klucza o długości k bitów liczba możliwych wartości to 2^k
+
+Hasła ludzkie są słabsze od losowych kluczy:
+AES-128 ma przestrzeń liczącą 2^128, ale człowiek nie wybiera hasła równomiernie spośród wszystkich możliwych 128-bitowych kluczy.
+Atakujący może testować najpierw popularne hasła, słowa ze słowników i typowe schematy.
+PBKDF2 utrudnia takie ataki przez zwiększenie kosztu każdego sprawdzanego hasła, ale nie zastępuje dobrego hasła. 
+
+
+
+Poufność - nikt niepowołany nie ma dostępu, szyfrowanie+
+Integralność - system nie psuje danych, funkcje haszujące np sha
+Dostępność - dane są dostępne kiedy powinny być, rozporszenie, kopie
