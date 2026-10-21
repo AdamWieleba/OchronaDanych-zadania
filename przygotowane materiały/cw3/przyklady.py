@@ -1,3 +1,6 @@
+#(py/) python -m pip install pycryptodome
+#pip3 install też może działać, jeśli pip3 jest dostępny
+
 #Program: PBKDF2-HMAC-SHA256
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Hash import SHA256
@@ -54,23 +57,70 @@ data = b"To sa dane do zaszyfrowania."
 
 # Szyfrowanie
 iv = get_random_bytes(16)
-cipher = AES.new(key, AES.MODE_CBC, iv)
-ciphertext = cipher.encrypt(pad(data, AES.block_size))
+aes = AES.new(key, AES.MODE_CBC, iv)
+encrypted = aes.encrypt(pad(data, AES.block_size))
 
 # Zachowujemy IV obok szyfrogramu
-encrypted_file_data = iv + ciphertext
+encrypted_file_data = iv + encrypted
 
 # Odszyfrowanie
 stored_iv = encrypted_file_data[:16]
-stored_ciphertext = encrypted_file_data[16:]
+stored_encrypted = encrypted_file_data[16:]
 
 decipher = AES.new(key, AES.MODE_CBC, stored_iv)
 plaintext = unpad(
-    decipher.decrypt(stored_ciphertext),
+    decipher.decrypt(stored_encrypted),
     AES.block_size
 )
 
 print(plaintext)
+
+
+
+
+#Program AES-ECB: podany_plik -> [+] plik_zaszyfrowany -> [+] plik_odszyfrowany
+import sys
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+from Crypto.Util.Padding import pad, unpad
+
+if len(sys.argv) != 2:
+    print("Użycie: python aes_file.py obraz.bmp")
+    sys.exit(1)
+
+nazwa = sys.argv[1]
+
+try:
+    with open(nazwa, "rb") as plik:
+        dane = plik.read()
+except FileNotFoundError:
+    print("Błąd: plik nie istnieje.")
+    sys.exit(1)
+
+# Generowanie klucza AES-128
+klucz = get_random_bytes(16)
+
+# Szyfrowanie AES w trybie ECB
+szyfr = AES.new(klucz, AES.MODE_ECB)
+kryptogram = szyfr.encrypt(pad(dane, AES.block_size))
+
+with open(nazwa + ".encrypted", "wb") as plik:
+    plik.write(kryptogram)
+
+# Odszyfrowanie kryptogramu
+deszyfr = AES.new(klucz, AES.MODE_ECB)
+odszyfrowane = unpad(
+    deszyfr.decrypt(kryptogram),
+    AES.block_size
+)
+
+with open(nazwa + ".decrypted", "wb") as plik:
+    plik.write(odszyfrowane)
+
+print("Zapisano:", nazwa + ".encrypted")
+print("Zapisano:", nazwa + ".decrypted")
+print("Czy dane są identyczne:", dane == odszyfrowane)
+
 
 
 
@@ -88,49 +138,22 @@ from math import log2
 from collections import Counter
 
 
-# ============================================================
-# KONFIGURACJA EKSPERYMENTU
-# ============================================================
-
 # Alfabet, z którego budujemy kolejne klucze.
-# Używamy małego alfabetu, aby demonstracja była wykonalna.
 ALPHABET = b"ab"
 
 # AES-128 wymaga klucza o długości dokładnie 16 bajtów.
 KEY_LENGTH = 16
-
-# Maksymalna liczba przetestowanych kluczy.
-# Program zakończy działanie po osiągnięciu tego limitu.
 MAX_ITERATIONS = 1000
 
-# Próg entropii wykorzystywany wyłącznie jako wskaźnik
-# diagnostyczny. Nie jest dowodem znalezienia poprawnego klucza.
+# Próg entropii wykorzystywany jako wskaźnik diagnostyczny.
 MIN_ENTROPY = 2.0
 
 # Czy wypisywać szczegóły każdej próby? True / False
 VERBOSE = False
 
 
-# ============================================================
-# OBLICZANIE ENTROPII SHANNONA
-# ============================================================
-
 def shannon_entropy(data):
-    """
-    Oblicza entropię Shannona rozkładu bajtów.
 
-    data:
-        Dane binarne, np. odszyfrowany tekst.
-
-    Wynik:
-        Entropia w bitach na bajt.
-
-    Maksymalna wartość wynosi 8, gdy wszystkie 256
-    możliwych wartości bajtu występują z równym
-    prawdopodobieństwem.
-    """
-
-    # Pusty ciąg nie zawiera obserwacji, więc przyjmujemy 0.
     if not data:
         return 0.0
 
@@ -141,34 +164,21 @@ def shannon_entropy(data):
     # Liczba wszystkich bajtów w analizowanych danych.
     total = len(data)
 
-    # Zaczynamy sumowanie od zera.
     entropy = 0.0
 
     # Iterujemy po liczbie wystąpień poszczególnych bajtów.
     for count in counts.values():
 
-        # Prawdopodobieństwo danego bajtu to jego liczność
-        # podzielona przez liczbę wszystkich bajtów.
+        # Prawdopodobieństwo = liczność bajtu / liczba wszystkich bajtów
         probability = count / total
-
-        # Dodajemy składnik wzoru: -p * log2(p).
         entropy -= probability * log2(probability)
 
-    # Zwracamy obliczoną entropię.
     return entropy
 
 
-# ============================================================
-# OCENA, CZY WYNIK WYGLĄDA JAK TEKST
-# ============================================================
 
 def looks_like_text(data):
-    """
-    Sprawdza, czy dane można zdekodować jako UTF-8
-    i czy nie zawierają wielu znaków sterujących.
-
-    To dodatkowa heurystyka, a nie dowód poprawności klucza.
-    """
+    # Sprawdza, czy dane można zdekodować jako UTF-8 i czy nie zawierają wielu znaków sterujących.
 
     try:
         # Próbujemy przekształcić bajty na tekst Unicode.
@@ -178,30 +188,15 @@ def looks_like_text(data):
         # Niepoprawny UTF-8: odrzucamy tego kandydata.
         return False
 
-    # Dopuszczamy znaki drukowalne oraz typowe białe znaki.
-    # Znaki sterujące inne niż tabulator i nowe linie
-    # powodują odrzucenie wyniku.
+    # Dopuszczamy znaki drukowalne oraz typowe białe znaki, nowe linie, tabulatory.
     return all(
         character.isprintable() or character in "\n\r\t"
         for character in text
     )
 
 
-# ============================================================
 # GENEROWANIE KOLEJNYCH KANDYDATÓW NA KLUCZ
-# ============================================================
-
 def generate_keys(alphabet, key_length):
-    """
-    Generuje wszystkie klucze o podanej długości,
-    których bajty pochodzą z określonego alfabetu.
-
-    itertools.product tworzy kolejne kombinacje.
-    Dla alfabetu b'ab' i długości 3 otrzymamy:
-    aaa, aab, aba, abb, baa, bab, bba, bbb.
-
-    Kolejność jest ustalona, a nie losowa.
-    """
 
     # product(*[alphabet] * key_length) tworzy iloczyn
     # kartezjański alfabetu z samym sobą key_length razy.
@@ -209,10 +204,6 @@ def generate_keys(alphabet, key_length):
     for combination in product(alphabet, repeat=key_length):
         yield bytes(combination)
 
-
-# ============================================================
-# BRUTE FORCE AES-ECB
-# ============================================================
 
 def brute_force_aes_ecb(ciphertext,
                         alphabet=ALPHABET,
@@ -230,27 +221,19 @@ def brute_force_aes_ecb(ciphertext,
     Entropia jest tylko wskaźnikiem diagnostycznym.
     """
 
-    # AES-ECB wymaga, aby szyfrogram miał długość
-    # będącą wielokrotnością 16 bajtów.
     if not ciphertext or len(ciphertext) % AES.block_size != 0:
         raise ValueError(
-            "Szyfrogram musi być niepusty i mieć długość "
-            "będącą wielokrotnością 16 bajtów."
+            "Szyfrogram musi być niepusty i mieć długość będącą wielokrotnością 16 bajtów."
         )
 
-    # Licznik prób zaczynamy od zera.
     iterations = 0
 
-    # Przechodzimy po kolejnych kluczach z generatora.
     for key in generate_keys(alphabet, key_length):
 
-        # Ograniczenie liczby prób chroni przed
-        # niekontrolowanym czasem działania.
         if iterations >= max_iterations:
             print("Osiągnięto limit prób.")
             break
 
-        # Zwiększamy licznik przed wykonaniem próby.
         iterations += 1
 
         try:
@@ -260,24 +243,18 @@ def brute_force_aes_ecb(ciphertext,
             # Odszyfrowujemy szyfrogram do postaci bajtów.
             decrypted_padded = cipher.decrypt(ciphertext)
 
-            # Usuwamy PKCS#7.
-            # Niepoprawne dopełnienie zwykle oznacza,
-            # że kandydat nie jest właściwym kluczem.
+            # Usuwamy PKCS#7 (dopełnienie)
             plaintext = unpad(
                 decrypted_padded,
                 AES.block_size
             )
 
         except ValueError:
-            # Błędne dopełnienie: przechodzimy do następnego
-            # kandydata. Nie oznacza to matematycznego dowodu,
-            # że klucz jest niepoprawny.
+            # Błędne dopełnienie: przechodzimy do następnego kandydata.
             continue
 
-        # Obliczamy entropię odszyfrowanych danych.
         entropy = shannon_entropy(plaintext)
 
-        # Sprawdzamy, czy wynik wygląda jak tekst UTF-8.
         text_candidate = looks_like_text(plaintext)
 
         if VERBOSE:
@@ -288,13 +265,7 @@ def brute_force_aes_ecb(ciphertext,
                 f"tekst={text_candidate}"
             )
 
-        # Przykładowa heurystyka:
-        # poprawne dopełnienie, tekst UTF-8 oraz odpowiednia
-        # entropia zwiększają zainteresowanie wynikiem.
-        #
-        # Uwaga: sam próg entropii nie jest uniwersalny.
-        # W tym przykładzie traktujemy go jako filtr,
-        # a nie jako wiarygodne potwierdzenie klucza.
+        # Próg entropii jako filtr.
         if text_candidate and entropy >= MIN_ENTROPY:
 
             # Zamieniamy tekstowe bajty na napis UTF-8.
@@ -310,25 +281,19 @@ def brute_force_aes_ecb(ciphertext,
             return key, plaintext
 
     # Jeśli pętla nie znalazła kandydata, zwracamy None.
-    print(f"Brak wyniku po {iterations} próbach.")
+    print(f"Brak dobrych wyników po {iterations} próbach.")
     return None
 
 
-# ============================================================
-# URUCHOMIENIE EKSPERYMENTU
-# ============================================================
+# URUCHOMIENIE 
+if __name__ == "__main__":  # sprawdza, czy plik Pythona jest uruchamiany bezpośrednio, a nie importowany jako moduł.
 
-if __name__ == "__main__":
-
-    # Tutaj należy podać rzeczywisty szyfrogram w bajtach.
-    # To tylko symbol zastępczy — nie jest prawdziwym
-    # szyfrogramem i nie pozwoli znaleźć klucza.
+    # Tutaj należy podać rzeczywisty szyfrogram w bajtach
     ciphertext = b""
 
     if not ciphertext:
         print(
-            "Uzupełnij zmienną ciphertext rzeczywistym "
-            "szyfrogramem AES-ECB z dopełnieniem PKCS#7."
+            "Uzupełnij zmienną ciphertext rzeczywistym szyfrogramem AES-ECB z dopełnieniem PKCS#7."
         )
     else:
         brute_force_aes_ecb(ciphertext)

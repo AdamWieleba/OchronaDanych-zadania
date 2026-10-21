@@ -1,10 +1,3 @@
-
-- PBKDF2-HMAC-SHA256; sól, liczba iteracji, długość klucza.
-- Kodowanie UTF-8; bajty i zapis szesnastkowy.
-- Entropia Shannona dla rozkładu bajtów.
-- Przestrzeń kluczy i przeszukiwanie kandydatów.
-
-
 AES (advanced encryption standard) 
 - szyfr symetryczny (ten sam klucz do szyfrowania i odwrotnie).
 - Przetwarza dane blokami o stałej wielkości 16 bajtów
@@ -105,6 +98,17 @@ PBKDF2 utrudnia takie ataki przez zwiększenie kosztu każdego sprawdzanego has�
 
 
 
+DES to starszy szyfr blokowy, blok 8bajtów, klucz efektywnie 56bitów, niebezpieczny ze względu na małą przestrzeń kluczy
 Poufność - nikt niepowołany nie ma dostępu, szyfrowanie+
 Integralność - system nie psuje danych, funkcje haszujące np sha
 Dostępność - dane są dostępne kiedy powinny być, rozporszenie, kopie
+
+AES nie używa dokładnie tego samego klucza w każdej rundzie. Z klucza początkowego wylicza zestaw kluczy rundowych (round keys).
+1. przygotowanie danych i klucza
+2. Zamiana bloku w macierz - 16 bajtów wejściowych AES umieszcza w macierzy 4 × 4, nazywanej stanem (state).
+3. Zwykła runda AES-128 wykonuje cztery operacje w tej kolejności:
+SubBytes - Zastępowanie bajtów przez S-box
+ShiftRows - Przesuwanie wierszy macierzy
+MixColumns - Mieszanie bajtów w kolumnach
+AddRoundKey - XOR ze specjalnym kluczem rundowym
+4. Odszyfrowanie odwraca operacje szyfrowania w odwrotnej kolejności, korzystając z tych samych kluczy rundowych. Stosuje operacje odwrotne (Inv...)
