@@ -20,11 +20,11 @@ print(cbc_encrypted.hex())
 
 ecb_decipher = AES.new(key, AES.MODE_ECB)
 plaintext = ecb_decipher.decrypt(ecb_encrypted)
-print(plaintext)
+print("Czy tekst po szyfrowaniu i odszyfrowaniu jest taki sam (ECB):", plaintext == data)
 
 cbc_decipher = AES.new(key, AES.MODE_CBC, iv)
 plaintext = cbc_decipher.decrypt(cbc_encrypted)
-print(plaintext)
+print("Czy tekst po szyfrowaniu i odszyfrowaniu jest taki sam (CBC):", plaintext == data)
 
 
 
