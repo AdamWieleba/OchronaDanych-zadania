@@ -1,7 +1,77 @@
-#użycie: python program.py baza_htpasswd identyfikator hasło
+#Prosty program liczący skrót w kawałkach
+#python sha256.py plik.txt
+"""
+read(4096) odczytuje plik po 4096 bajtów, następnie h.update() dodaje każdy kawałek do obliczanego skrótu. 
+Dzięki temu nie trzeba wczytywać całego pliku do pamięci.
+"""
+import sys
+from Crypto.Hash import SHA256  #import hashlib
+
+plik = sys.argv[1]
+h = SHA256.new()  #h = hashlib.sha256()
+
+with open(plik, "rb") as f:
+    while kawalek := f.read(4096):  # odczytaj 4096 bajtów, przypisz je do kawalek i  jeśli nie jest pusty, wykonaj pętlę
+        h.update(kawalek)
+
+print(h.hexdigest(), plik)
+
+
+
+# Użycie pieprzu  (w połączeniu z pkbdf2)
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Hash import SHA256
+from Crypto.Random import get_random_bytes
+
+haslo = "tajnehaslo"
+
+sol = get_random_bytes(16)
+pieprz = b"moj_tajny_pieprz"
+
+dane = haslo.encode() + pieprz
+
+skrot = PBKDF2(
+    dane,
+    sol,
+    dkLen=32,
+    count=10000,
+    hmac_hash_module=SHA256
+)
+
+print("Sól:", sol.hex())
+print("Skrót:", skrot.hex())
+
+
+
+#Przykład wykorzystania słownika (do wykrywania kolizji)
+def trivial_hash(dane):
+    hash = 0
+    for znak in dane:
+        hash += ord(znak) # ord() zwraca liczbę całkowitą odpowiadającą znakowi Unicode
+    return hash % 999
+
+slownik = {}
+
+teksty = ["abc", "bca", "cab", "kot", "pies"]
+
+for tekst in teksty:
+    h = trivial_hash(tekst)
+
+    if h not in slownik:
+        slownik[h] = []
+
+    slownik[h].append(tekst)
+
+#znaleźliśmy kolizję  (ten skrót jest już w słowniku):
+if h in slownik:    
+	print("Kolizja:", slownik[h], tekst)
+
+
+
 
 
 # 1. Sprawdzanie identyfikatora i hasła użytkownika
+#python program.py baza_htpasswd identyfikator hasło
 import sys
 import subprocess
 

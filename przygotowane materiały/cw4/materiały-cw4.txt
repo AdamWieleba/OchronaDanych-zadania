@@ -1,0 +1,143 @@
+
+1. Funkcja skrótu – stała długość wyniku, odporność na przeciwobraz, drugi przeciwobraz i kolizje 
+– Funkcja skrótu przekształca dane dowolnej długości w skrót o stałej długości. Dobra funkcja kryptograficzna powinna być odporna na:
+ Przeciwobraz – znalezienie danych na podstawie ich skrótu.
+ Drugi przeciwobraz – znalezienie innych danych o takim samym skrócie jak wskazane dane.
+ Kolizje – znalezienie dowolnych dwóch różnych danych o identycznym skrócie.
+
+2. MD5 (128 bitów), SHA-1 (160 bitów), SHA-256 (256 bitów) – dlaczego MD5 i SHA-1 nie nadają się do zabezpieczeń 
+– Są to algorytmy obliczające skróty danych o określonej długości. MD5 i SHA-1 są uznawane za niebezpieczne ze względu na praktyczne możliwości znajdowania kolizji. SHA-256 jest bezpieczniejszy i nadal powszechnie stosowany.
+
+3. Efekt lawinowy, zapis szesnastkowy skrótu, XOR i liczenie różniących się bitów 
+– Efekt lawinowy polega na tym, że zmiana nawet jednego bitu danych wejściowych powoduje zwykle zmianę około połowy bitów skrótu. Skrót często zapisuje się w systemie szesnastkowym, np. wynik SHA-256 ma 64 znaki szesnastkowe. Operator XOR (^ w Pythonie) pozwala porównać dwa wyniki bit po bicie. Liczba jedynek w wyniku XOR określa liczbę różniących się bitów.
+a = b"kot"  b = b"kod"
+
+x = int.from_bytes(a, "big") ^ int.from_bytes(b, "big")
+print("Różniące się bity:", x.bit_count())
+
+- ^ wykonuje XOR bit po bicie.
+- w tym podejściu ...^... muszą mieć równe długości
+- int.from_bytes() zamienia bajty na liczby całkowite.
+- bit_count() liczy bity równe 1, czyli różniące się bity.
+
+4. Sumy kontrolne plików – format sha256sum, sprawdzanie jak w sha256sum -c, liczenie skrótu w kawałkach 
+– Suma kontrolna pozwala sprawdzić, czy zawartość pliku uległa zmianie. Program sha256sum oblicza skrót SHA-256, a sha256sum -c porównuje aktualne skróty z zapisanymi wcześniej w pliku kontrolnym. Skrót dużego pliku można obliczać stopniowo, wczytując dane w kawałkach, np. za pomocą hashlib.sha256().update(fragment). Trzeba pamiętać, że nawet zmiana końców wierszy z LF na CRLF zmienia skrót pliku.
+Format sha256sum: 
+Najpierw jest skrót SHA-256 (64 znaki szesnastkowe), potem dwie spacje i nazwa pliku
+np. 298f...b924  plik.txt
+
+5. Integralność a uwierzytelnienie – suma kontrolna, HMAC, podpis cyfrowy 
+– Integralność oznacza, że dane nie zostały zmienione, a uwierzytelnienie pozwala potwierdzić ich pochodzenie. Zwykła suma kontrolna wykrywa zmiany, ale każdy może ją przeliczyć. HMAC wykorzystuje tajny klucz i funkcję skrótu, dzięki czemu umożliwia sprawdzenie integralności oraz uwierzytelnienie wiadomości. Podpis cyfrowy wykorzystuje kryptografię asymetryczną i pozwala zweryfikować podpis przy użyciu klucza publicznego.
+*
+HMAC – uwierzytelnianie wiadomości za pomocą funkcji skrótu - mechanizm wykorzystujący funkcję skrótu, np. SHA-256, oraz tajny klucz. Pozwala sprawdzić, czy wiadomość nie została zmieniona i czy została utworzona przez kogoś, kto zna klucz.
+
+Zwykły skrót SHA-256 nie wystarcza do uwierzytelnienia, ponieważ każdy może obliczyć go ponownie po zmianie wiadomości. HMAC wymaga znajomości tajnego klucza.
+Wiadomość + tajny klucz -> HMAC-SHA256 -> Kod uwierzytelniający (MAC)
+
+Przykład w Pythonie: *w cw3 #Program: PBKDF2-HMAC-SHA256 - pbkdf2 wykonuje HMAC określoną liczbę iteracji
+import hmac
+import hashlib
+
+klucz = b"tajny_klucz"
+wiadomosc = b"Przelej 100 zl"
+
+mac = hmac.new(klucz, wiadomosc, hashlib.sha256).hexdigest()
+print(mac)
+
+# Weryfikacja
+mac2 = hmac.new(klucz, wiadomosc, hashlib.sha256).hexdigest()
+
+print(hmac.compare_digest(mac, mac2))
+
+
+
+6. Przechowywanie haseł – dlaczego nie jawnie i nie samym SHA-256; sól, pieprz, rozciąganie klucza 
+– Hasła nie powinny być przechowywane w postaci jawnej, ponieważ wyciek bazy ujawniłby je bezpośrednio. Sam SHA-256 jest zbyt szybki, co ułatwia ataki brute-force. Do ochrony haseł stosuje się specjalne, wolniejsze funkcje, np. PBKDF2. Sól jest losową wartością, która może być publiczna i jest przechowywana razem ze skrótem. Pieprz to dodatkowa tajna wartość przechowywana oddzielnie od bazy. Rozciąganie klucza polega na wielokrotnym przetwarzaniu hasła, aby spowolnić sprawdzanie kolejnych kandydatów.
+
+Pieprz to tajna wartość dodawana do hasła przed obliczeniem jego skrótu. W przeciwieństwie do soli pieprz nie jest przechowywany w bazie użytkowników — powinien być trzymany oddzielnie, np. w zmiennej środowiskowej lub systemie zarządzania sekretami.
+różnice pieprzu od soli:
+- Zwykle wspólny dla wielu haseł
+- Przechowywany oddzielnie od bazy
+- Utrudnia atak, gdy wycieknie sama baza, jeśli pieprz pozostanie tajny
+
+Przykład poglądowy:
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Hash import SHA256
+from Crypto.Random import get_random_bytes
+
+haslo = "tajnehaslo"
+
+sol = get_random_bytes(16)
+pieprz = b"moj_tajny_pieprz"  <-- zwykły PBKDF2 tylko +2 linie
+
+dane = haslo.encode() + pieprz  <--
+
+skrot = PBKDF2(
+    dane,
+    sol,
+    dkLen=32,
+    count=600000,
+    hmac_hash_module=SHA256
+)
+
+print("Sól:", sol.hex())
+print("Skrót:", skrot.hex())
+
+
+
+7. PBKDF2-HMAC-SHA256 – hasło w UTF-8, sól, liczba iteracji, długość wyniku; parametry zapisane w rekordzie 
+– PBKDF2 to funkcja wyprowadzania klucza, którą można wykorzystać do przechowywania haseł. Przyjmuje hasło, sól, liczbę iteracji oraz długość wyniku. Hasło tekstowe należy zakodować do bajtów, np. w UTF-8. Większa liczba iteracji zwiększa koszt obliczeń i utrudnia ataki brute-force. Sól, liczbę iteracji i parametry algorytmu należy zapisać razem ze skrótem, aby można było później zweryfikować hasło.
+
+8. Porównanie skrótów w stałym czasie 
+– Porównanie w stałym czasie nie powinno kończyć się wcześniej po znalezieniu pierwszej różnicy. Ogranicza to możliwość wyciągania informacji o skrócie na podstawie czasu działania programu. W Pythonie można użyć hmac.compare_digest(a, b).
+
+9. Przestrzeń haseł: N^L kandydatów, entropia L·log2(N), czas = liczba kandydatów × czas jednej próby 
+– Dla haseł o długości L, zbudowanych ze zbioru N znaków, istnieje N^L możliwych kombinacji. Entropię maksymalną takiego hasła można oszacować jako L log_2(N) bitów, zakładając losowy, równomierny wybór znaków. Czas pełnego ataku brute-force zależy od liczby kandydatów i czasu sprawdzenia jednego hasła. Im dłuższe i bardziej różnorodne hasło, tym trudniej je odgadnąć.
+
+10. Paradoks urodzinowy – kolizja n-bitowego skrótu po około 2^(n/2) próbach, ustalony skrót po około 2^n 
+– Paradoks urodzinowy oznacza, że kolizję można znaleźć znacznie szybciej, niż wynikałoby to z liczby wszystkich możliwych skrótów. Dla skrótu o długości n bitów znalezienie dowolnej kolizji wymaga przeciętnie około 2^(n/2) prób, natomiast znalezienie danych pasujących do konkretnego, ustalonego skrótu wymaga około 2^n prób.
+
+11. Bity liczby całkowitej: (v >> i) & 1 
+– Wyrażenie to odczytuje bit o indeksie i liczby v, licząc od zera od strony najmniej znaczącego bitu. Operator >> przesuwa bity w prawo, a & 1 pozostawia tylko ostatni bit. Wynik to 0 albo 1.
+a = 0b1010
+b = 0b1100
+x = a ^ b
+for i in range(4):    
+	print((x >> i) & 1)
+
+Wynik to 0, 1, 1, 0 — jedynki oznaczają różnice na danych pozycjach.
+
+
+12. Słownik (tablica haszująca) z listą wartości dla klucza – Słownik w Pythonie (dict) przechowuje wartości przypisane do kluczy i wykorzystuje funkcję haszującą do szybkiego wyszukiwania. Jeśli jeden klucz ma mieć wiele wartości, można przypisać mu listę, np. slownik[klucz] = [wartosc1, wartosc2]. Pozwala to również grupować dane według wspólnego skrótu i wyszukiwać potencjalne kolizje.
+
+Przykład:
+def trivial_hash(dane):
+    hash = 0
+    for znak in dane:
+        hash += ord(znak)
+    return hash % 999
+
+slownik = {}
+
+teksty = ["abc", "bca", "cab", "kot", "pies"]
+
+for tekst in teksty:
+    h = trivial_hash(tekst)
+
+    if h not in slownik:
+        slownik[h] = []
+
+    slownik[h].append(tekst)
+
+print(slownik)
+Ponieważ abc, bca i cab składają się z tych samych znaków, ich suma kodów znaków jest identyczna, więc mają taki sam trivial_hash().
+Słownik może więc przechowywać przykładowo:  294: ["abc", "bca", "cab"]
+
+Zastosowanie w zadaniu o kolizjach: zapamiętujemy wcześniej napotkane teksty pod ich skrótami. Jeśli pojawi się ten sam skrót dla innego tekstu, znaleźliśmy kolizję:
+
+if h in slownik:    
+	print("Kolizja:", slownik[h], tekst)
+
+
+
+Funkcje skrótu służą do kontroli integralności danych, ale nie zapewniają same z siebie uwierzytelnienia. Do ochrony haseł stosuje się specjalne funkcje, takie jak PBKDF2, a atak brute-force polega na systematycznym sprawdzaniu kolejnych kandydatów. Długość hasła, wielkość przestrzeni znaków oraz koszt sprawdzania pojedynczej próby mają bezpośredni wpływ na skuteczność takiego ataku.
