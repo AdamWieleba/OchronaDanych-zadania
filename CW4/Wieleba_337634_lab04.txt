@@ -1,0 +1,38 @@
+Adam Wieleba 337634
+python
+Link do github z tego ćwiczenia: https://github.com/AdamWieleba/OchronaDanych-zadania/tree/main/CW4
+Identyfikator commitu: 
+
+_Zadanie 1
+dokumenty/budzet.csv: BŁĄD
+dokumenty/dane.bin: OK
+dokumenty/harmonogram.txt: BRAK
+dokumenty/kontakt.txt: OK
+dokumenty/regulamin.txt: OK
+Różniące się bity: 131
+
+Atakujący może po prostu policzyć i zapisać nową sumę po zmianie danych, dlatego trzeba używać HMAC albo podpisu cyfrowego.
+
+
+_Zadanie 2
+Weryfikacja (anna, Kasztan-2026): True
+Weryfikacja (anna, kasztan-2026): False
+Weryfikacja (piotr, Żółw na łące): True
+Weryfikacja (kasia, Kasztan-2026): False
+Czy sole są takie same: False
+Czy skróty są takie same: False
+Weryfikacja test1: True
+Weryfikacja test2: True
+
+Dzięki użyciu różnych soli, z identycznego hasła generowane są różne skróty, a liczba iteracji po prostu wydłuża czas obliczania skrótu.
+
+
+_Zadanie 3
+Kolizja:
+v oryginału: 7282
+v zmienionego: 1761
+h24: aac6b9
+Liczba wariantów zmienionego o h24 równym oryginałowi: 0
+
+Znalezienie dowolnej pary jest znacznie łatwiejsze, bo każdy z wariantów pliku "A" ma szansę być zgodnym z każdym wariantem pliku "B",
+a nie tylko jego jedną wersją.
