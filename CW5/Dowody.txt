@@ -1,0 +1,160 @@
+Zadanie 1
+Przed zmianami:
+
+Adres | kod http | czy widać listę plików:
+/materialy/   200  tak
+/wewnetrzne/  200  tak
+/materialy/notatka.txt  200  wyświetla zawartość pliku
+/wewnetrzne/plan.txt    200  wyświetla zawartość pliku
+
+Po zmianach:
+
+Adres | kod http | czy widać listę plików:
+/materialy/   403  nie
+/wewnetrzne/  403  nie
+/materialy/notatka.txt  200  wyświetla zawartość pliku
+/wewnetrzne/plan.txt    403  blokuje dostęp do zawartości pliku
+
+Jeden z wpisów odmowy dostępu:
+web-1  | ... [authz_core:error] ... AH01630: client denied by server configuration: /usr/local/apache2/htdocs/wewnetrzne/plan.txt
+
+
+Wyłączenie listowania jedynie ukrywa zawartość katalogu, ale nie blokuje dostępu do plików których adres znamy, podczas gdy blokada dostępu całkowicie uniemożliwia dostęp przez http. 
+
+- Porównanie z nginx: -
+
+Różnice przed zmianami:
+/materialy/  403  nie
+/wewnetrzne/  403  nie
+
+Wyjaśnienie: w nginx domyślnie listowanie jest wyłączone, odwrotnie niż w apache
+
+Po zmianach wszystko jest tak samo jak dla apache (location /wewnetrzne/ { deny all; })
+
+
+Zadanie 2
+2.3
+curl -i http://127.0.0.1:8080/panel/raport.txt
+Bez danych logowania:  401  (WWW-Authenticate: Basic realm="Laboratorium 5")
+
+curl -i -u student http://127.0.0.1:8080/panel/raport.txt
+Błędne dane logowania: 401
+
+curl -i -u student http://127.0.0.1:8080/panel/raport.txt
+Poprawne dane logowania: 200
+
+curl -i http://127.0.0.1:8080/
+Publiczna (bez logowania):  200
+
+
+HTTP Basic jedynie koduje hasło i login base64, nie szyfruje ich - więc w zwykłym http każdy może je podejrzeć
+
+
+Zadanie 3
+curl -i http://127.0.0.1:8080/cgi-bin/uprawnienia.cgi
+HTTP/1.1 200 OK
+Date: Thu, 05 Nov 2026 18:51:45 GMT
+Server: Apache
+Transfer-Encoding: chunked
+Content-Type: text/plain; charset=utf-8
+
+Efektywny UID: 2
+Efektywny GID: 2
+Plik: /lab-data/ogolny.txt
+LAB05: dokument dostepny dla grupy procesu WWW.
+
+Plik: /lab-data/poufny.txt
+Blad odczytu
+
+docker compose exec web ls -ln /lab-data/
+total 8
+-rw-r-----    1 0        2               48 Nov  5 17:05 ogolny.txt
+-rw-------    1 0        2               61 Nov  5 17:05 poufny.txt
+
+
+Po zabezpieczeniu CGI:
+curl -i http://127.0.0.1:8080/cgi-bin/uprawnienia.cgi
+bez logowania: 
+401 Unauthorized
+
+curl -i -u student http://127.0.0.1:8080/cgi-bin/uprawnienia.cgi
+z poprawnym logowaniem:
+
+Enter host password for user 'student':
+HTTP/1.1 200 OK
+Date: Thu, 05 Nov 2026 18:59:30 GMT
+Server: Apache
+Transfer-Encoding: chunked
+Content-Type: text/plain; charset=utf-8
+
+Efektywny UID: 2
+Efektywny GID: 2
+Plik: /lab-data/ogolny.txt
+LAB05: dokument dostepny dla grupy procesu WWW.
+
+Plik: /lab-data/poufny.txt
+Blad odczytu
+
+
+
+compose.nginx.yaml
+nginx/default.conf
+
+docker compose -f compose.nginx.yaml up -d
+
+docker compose -f compose.nginx.yaml exec nginx nginx -t
+docker compose -f compose.nginx.yaml restart nginx
+ 1.2, 1.3, 1.4 tak samo
+
+ALE 1.1 inaczej
+Adres | kod http | czy widać listę plików:
+/materialy/  403  nie
+/wewnetrzne/  403  nie
+/materialy/notatka.txt  200  wyświetla zawartość pliku
+/wewnetrzne/plan.txt  200  wyświetla zawartość pliku
+
+Wniosek - w nginx domyślnie listowanie jest wyłączone!, odwrotnie niż w apache. Trzeba włączać je ręcznie
+
+logi dla nginx
+docker compose -f compose.nginx.yaml logs --tail 10 nginx
+
+(dla apache było  docker compose logs --tail 10 web)
+
+
+zmiana do 1.2-1.4:
+    location /wewnetrzne/ {
+        deny all;
+    }
+
+lab05-nginx  | 2026/11/05 20:13:30 [error] 21#21: *1 access forbidden by rule, client: [ip], server: localhost, request: "GET /wewnetrzne/plan.txt HTTP/1.1", host: "127.0.0.1:8081"
+
+
+Zadanie 2
+
+location /panel/ {
+    auth_basic "Laboratorium 5";
+    auth_basic_user_file /auth/uzytkownicy;
+}
+-
+- To odpowiednik:
+-
+<Directory "/usr/local/apache2/htdocs/panel">
+    AuthType Basic
+    AuthName "Laboratorium 5"
+    AuthUserFile /auth/uzytkownicy
+    Require valid-user
+</Directory>
+
+curl -i http://127.0.0.1:8081/panel/raport.txt
+bez logowania: 401  (WWW-Authenticate: Basic realm="Laboratorium 5")
+
+curl -i -u student http://127.0.0.1:8081/panel/raport.txt
+Błędne dane logowania: 401
+
+curl -i -u student http://127.0.0.1:8081/panel/raport.txt
+Poprawne dane logowania: 200
+
+curl -i http://127.0.0.1:8081/
+Publiczna (bez logowania):  200
+
+Czyli wszędzie tak samo

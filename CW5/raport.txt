@@ -1,0 +1,91 @@
+Adam Wieleba, 337634, 
+
+Zadanie 1
+Przed zmianami:
+
+Adres | kod http | czy widać listę plików:
+/materialy/   200  tak
+/wewnetrzne/  200  tak
+/materialy/notatka.txt  200  wyświetla zawartość pliku
+/wewnetrzne/plan.txt    200  wyświetla zawartość pliku
+
+Po zmianach:
+
+Adres | kod http | czy widać listę plików:
+/materialy/   403  nie
+/wewnetrzne/  403  nie
+/materialy/notatka.txt  200  wyświetla zawartość pliku
+/wewnetrzne/plan.txt    403  blokuje dostęp do zawartości pliku
+
+Jeden z wpisów odmowy dostępu:
+web-1  | ... [authz_core:error] ... AH01630: client denied by server configuration: /usr/local/apache2/htdocs/wewnetrzne/plan.txt
+
+
+Wyłączenie listowania jedynie ukrywa zawartość katalogu, ale nie blokuje dostępu do plików których adres znamy, podczas gdy blokada dostępu całkowicie uniemożliwia dostęp przez http. 
+
+- Porównanie z nginx: -
+
+Różnice przed zmianami:
+/materialy/  403  nie
+/wewnetrzne/  403  nie
+
+Wyjaśnienie: w nginx domyślnie listowanie jest wyłączone, odwrotnie niż w apache
+
+Po zmianach (dodanie "deny all;" dla "location /wewnetrzne/{ }") wszystko jest tak samo jak dla apache 
+
+
+
+Zadanie 2
+Testowanie /panel/raport.txt:
+
+Bez danych logowania:  401  (WWW-Authenticate: Basic realm="Laboratorium 5")
+Błędne dane logowania: 401
+Poprawne dane logowania: 200
+Strona publiczna (bez logowania):  200
+
+
+HTTP Basic jedynie koduje hasło i login base64, nie szyfruje ich - więc w zwykłym http każdy może je podejrzeć.
+
+- Porównanie z nginx: -
+Wszystko tak samo
+
+
+
+Zadanie 3
+Przed zabezpieczeniem katalogu: 
+[...]
+Efektywny UID: 2
+Efektywny GID: 2
+
+Plik: /lab-data/ogolny.txt
+LAB05: dokument dostepny dla grupy procesu WWW.
+
+Plik: /lab-data/poufny.txt
+Blad odczytu
+
+
+Sprawdzenie uprawnień:
+-rw-r-----    1 0        2               48 Nov  5 17:05 ogolny.txt
+-rw-------    1 0        2               61 Nov  5 17:05 poufny.txt
+
+
+Po zabezpieczeniu katalogu:
+bez logowania: 
+    401 Unauthorized
+
+z poprawnym logowaniem:
+[...]
+Efektywny UID: 2
+Efektywny GID: 2
+
+Plik: /lab-data/ogolny.txt
+LAB05: dokument dostepny dla grupy procesu WWW.
+
+Plik: /lab-data/poufny.txt
+Blad odczytu
+
+
+Zalogowanie do serwera WWW nie zmienia efektywnego UID/GID procesu, więc uprawnienia CGI pozostają bez zmian.
+
+
+

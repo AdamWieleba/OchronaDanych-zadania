@@ -1,0 +1,13 @@
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: lab05-nginx
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - ./www:/usr/share/nginx/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./auth:/auth:ro
+    restart: unless-stopped
+
