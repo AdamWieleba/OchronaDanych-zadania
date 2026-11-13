@@ -1,0 +1,19 @@
+Adam Wieleba, 337634, https://github.com/AdamWieleba/OchronaDanych-zadania/tree/main/CW6
+
+Zadanie 1
+
+adres: /szukaj?q=<body style="background-color: red;"><title>XSS-odbity</title>
+- rzeczywiście zmieniło kolor tła strony
+
+Błąd jest w linii 35:
+	fraza = request.args.get("q", "")
+
+Po zmianie: 
+	fraza = escape(request.args.get("q", ""))
+
+Wyniki wyszukiwania dla: <body style="background-color: red;"><title>XSS-odbity</title>
+dla konsultacje nadal działa
+
+
+Kodowanie wyjścia zachowuje dokładnie całą przekazaną treść, a poza tym istnieją łatwe sposoby na omijanie usuwania słowa script 
+
