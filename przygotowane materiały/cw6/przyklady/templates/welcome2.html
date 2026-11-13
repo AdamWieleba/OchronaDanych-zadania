@@ -1,0 +1,75 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Flask i JavaScript</title>
+</head>
+<body>
+
+    <h1>Laboratorium Flask i JavaScript</h1>
+
+    <p id="message">Witaj użytkowniku!</p>
+
+    <button onclick="readCookie()">
+        Odczytaj ciasteczko
+    </button>
+
+    <button onclick="saveCookie()">
+        Zapisz ciasteczko
+    </button>
+
+    <button onclick="readHTML()">
+        Odczytaj HTML elementu
+    </button>
+
+    <button onclick="loadRemoteScript()">
+        Załaduj skrypt
+    </button>
+
+    <script>
+
+        // 1. Odczytywanie ciasteczek JavaScript
+        function readCookie() {
+            console.log(document.cookie);
+            alert(document.cookie);
+        }
+
+        // 2. Zapisywanie ciasteczka JavaScript
+        function saveCookie() {
+            document.cookie =
+                "test=wartosc123; path=/; SameSite=Lax";
+
+            alert("Zapisano ciasteczko");
+        }
+
+        // 3. Odczytywanie treści HTML elementu po ID
+        function readHTML() {
+            let element =
+                document.getElementById("message");
+
+            alert(element.innerHTML);
+        }
+
+        // 4. Zdalne załadowanie skryptu
+        function loadRemoteScript() {
+            let script = document.createElement("script");
+
+            script.src = "/static/example.js";
+
+            document.body.appendChild(script);
+        }
+
+        // 5. Pobranie argumentu GET z adresu
+        let params = new URLSearchParams(
+            window.location.search
+        );
+
+        let name = params.get("name");
+
+        console.log("Argument GET:", name);
+
+    </script>
+
+</body>
+</html>
