@@ -118,6 +118,8 @@ except Exception:
 
 
 ### Część 2 - Code injection
+
+# Niebezpieczny kalkulator
 from flask import Flask, request
 
 app = Flask(__name__)
@@ -184,4 +186,200 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run(debug=False) #/True /w ogóle wywalić
+    app.run(debug=False)
+
+
+# Tworzenie bazy danych (trwałej), 
+# python create_db.py:
+import sqlite3
+
+db = sqlite3.connect("secrets.db")
+
+cur = db.cursor()
+
+cur.execute("""
+    CREATE TABLE secrets (
+        key TEXT,
+        secret TEXT
+    )
+""")
+
+cur.execute(
+    "INSERT INTO secrets VALUES (?, ?)",
+    ("1234", "Hello world")
+)
+
+cur.execute(
+    "INSERT INTO secrets VALUES (?, ?)",
+    ("qwerty", "Top secret")
+)
+
+db.commit()
+db.close()
+
+print("Baza danych została utworzona.")
+
+
+# mkdir templates
+# templates/sql_secrets.html
+"""
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>SQL Secrets</title>
+</head>
+<body>
+
+    <h3>SQL Secrets</h3>
+
+    <form action="/sql_secrets" method="GET">
+        Enter key:
+        <input type="text" name="key" size="50">
+        <input type="submit" value="Get secret">
+    </form>
+
+</body>
+</html>
+"""
+
+
+# Podatny SQL, python sql_secrets.py:
+import sqlite3
+
+from flask import Flask, request, render_template_string
+
+app = Flask(__name__)
+
+DBFILE = "secrets.db"
+
+
+@app.route("/")
+def index():
+    return """
+    <h3>SQL Secrets</h3>
+
+    <form action="/sql_secrets" method="GET">
+        Enter key:
+        <input type="text" name="key" size="50">
+        <input type="submit" value="Get secret">
+    </form>
+    """
+
+
+@app.route("/sql_secrets")
+def sql_secrets():
+
+    key = request.args.get("key", "")
+
+    conn = sqlite3.connect(DBFILE)
+    cursor = conn.cursor()
+
+    html = "<html><body>"
+
+    html += f"Key: {key}<br>"
+
+    # CELOWO PODATNE ZAPYTANIE, np. dla key:
+    #     ' OR '1'='1' -- 
+    #     SELECT * FROM secrets WHERE key='' OR '1'='1' --'
+    # zwróci wszystkie rekordy z tabeli secrets
+    query = f"SELECT * FROM secrets WHERE key='{key}'"
+
+    try:
+        for row in cursor.execute(query):
+            html += f"Secret: {row[1]}<br>"
+
+    except sqlite3.Error:
+        html += "Wystąpił błąd SQL"
+
+    conn.close()
+
+    html += "</body></html>"
+
+    return html
+
+
+if __name__ == "__main__":
+    app.run(debug=False)
+
+"""
+python create_db.py
+python sql_secrets.py
+
+Atak przez injection:
+curl -G --data-urlencode "key=' OR '1'='1' -- " http://127.0.0.1:5000/sql_secrets
+(może ' UNION SELECT * FROM secrets -- też by zadziałało)
+
+Poprawny klucz:
+curl -G --data-urlencode "key=1234" http://127.0.0.1:5000/sql_secrets
+
+
+Do sql injection można użyć', OR, --, UNION.
+"""
+
+
+# Bezpieczny SQL, python sql_secrets_safe.py:
+import sqlite3
+
+from flask import Flask, request, render_template_string
+
+app = Flask(__name__)
+
+DBFILE = "secrets.db"
+
+
+@app.route("/")
+def index():
+    return """
+    <h3>SQL Secrets</h3>
+
+    <form action="/sql_secrets" method="GET">
+        Enter key:
+        <input type="text" name="key" size="50">
+        <input type="submit" value="Get secret">
+    </form>
+    """
+
+
+@app.route("/sql_secrets")
+def sql_secrets():
+
+    key = request.args.get("key", "")
+
+    if not key or len(key) > 50:
+        return "Nieprawidłowe dane", 400
+
+    conn = sqlite3.connect(DBFILE)
+
+    try:
+        cursor = conn.cursor()
+
+        # BEZPIECZNE ZAPYTANIE PARAMETRYZOWANE
+        cursor.execute(
+            "SELECT secret FROM secrets WHERE key = ?",
+            (key,)
+        )
+
+        results = cursor.fetchall()
+
+        if not results:
+            return "Nie znaleziono sekretu", 404
+
+        secrets = "".join(
+            f"<p>Secret: {row[0]}</p>"
+            for row in results
+        )
+
+        return secrets
+
+    except sqlite3.Error:
+        app.logger.exception("Błąd bazy danych")
+        return "Wystąpił błąd serwera", 500
+
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    app.run(debug=False)
+
