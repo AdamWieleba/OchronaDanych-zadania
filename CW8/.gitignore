@@ -1,0 +1,5 @@
+# Klucze prywatne
+*.pem
+*.key
+private/
+keys/
