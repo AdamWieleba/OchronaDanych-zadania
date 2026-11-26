@@ -1,0 +1,34 @@
+Adam Wieleba 337634, https://github.com/AdamWieleba/OchronaDanych-zadania/tree/main/CW8
+Wszystkie pliki z kodem i wynikami znajdują się w "pliki-dla-studentow". (python z1.py, python z2.py)
+
+## Zadanie 1
+
+4^13 mod 497 = 445 (poprawne: 445)
+4^0 mod 497 = 1 (poprawne: 1)
+
+p = 1048601, q = 1398107
+Czas: 0.080046s
+
+phi = 1466053951600, d = 1396416556673
+Sprawdzenie (e * d) % phi == 1: True
+
+Odszyfrowany tekst:
+Klucz RSA o długości 41 bitów rozkładasz na czynniki w ułamku sekundy. Bezpieczne RSA ma co najmniej 2048 bitów.
+
+
+Ta metoda nie złamie klucza o długości 2048 bitów, bo to jest taka ogromna liczba, że sprawdzanie po kolei aż do jej pierwiastka jest praktycznie niemożliwe obliczeniowo.
+
+
+
+## Zadanie 2
+
+faktura.txt BŁĄD
+protokol.txt OK
+regulamin.txt BŁĄD
+umowa.txt OK
+
+Weryfikacja własnego podpisu: OK
+Weryfikacja zmienionego dokumentu: BŁĄD
+
+Jeśli klucz publiczny pochodzi z niezaufanego źródła, to nie wiemy czy faktycznie pochodzi od właściwej osoby, więc weryfikacja tym kluczem nie potwierdza tożsamości nadawcy
+
